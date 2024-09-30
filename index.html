@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Clone</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="webrtc.js" defer type="module"></script>
+    <script src="app.js" defer type="module"></script>
+</head>
+<body>
+    <div id="login-overlay">
+        <h2>Login to WhatsApp Clone</h2>
+        <button id="login-btn">Login with Google</button>
+    </div>
+
+    <div class="container" id="app-container" style="display: none;">
+        <!-- User Details (logged-in user profile) -->
+        <aside class="user-details">
+            <header>
+                <h2>Logged In User</h2>
+            </header>
+            <p id="logged-user">User: John Doe</p>
+            <img id="profile-pic" src="" alt="Profile Picture" style="width: 50px; height: 50px; border-radius: 50%;">
+            <button id="logout-btn">Logout</button>
+        </aside>
+
+        <!-- Contact List -->
+        <aside class="contact-list">
+            <header>
+                <h2>Contacts</h2>
+            </header>
+            <ul id="contacts"></ul>
+        </aside>
+        
+        <!-- Chat Box -->
+        <main class="chat-box">
+            <header id="chat-header">
+                <h2>Select a contact</h2>
+                <button id="audio-call-btn" style="display: none;">Audio Call</button>
+                <button id="video-call-btn" style="display: none;">Video Call</button>
+            </header>
+            <div id="chat-window">
+                <p>Select a contact to start chatting.</p>
+            </div>
+            <footer id="chat-input">
+                <input type="text" id="message-input" placeholder="Type a message..." disabled>
+                <button id="send-btn" disabled>Send</button>
+            </footer>
+        </main>
+
+        <!-- Video/Audio Call Section -->
+        <div class="call-section">
+            <video id="localVideo" autoplay muted></video>
+            <video id="remoteVideo" autoplay></video>
+
+            <div id="call-overlay">
+                <h2>Calling <span id="calling-user"></span></h2>
+                <button id="end-call-btn">End Call</button>
+            </div>
+
+            <div id="incoming-call-overlay">
+                <h2>Incoming Call from <span id="incoming-user"></span></h2>
+                <button id="accept-call-btn">Accept</button>
+                <button id="reject-call-btn">Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ring -->
+     <audio src="ringtone.mp3" autoplay id="incoming"></audio>
+     <audio src="classic-5916.mp3" autoplay id="outgoing"></audio>
+
+     
+    
+</body>
+</html>
