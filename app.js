@@ -246,10 +246,10 @@ function listenForMessages(selectedUser) {
             // Set class based on whether the message was sent or received
             if (msg.senderId === auth.currentUser.uid) {
                 msgElem.classList.add("sent");
-                msgElem.innerText = `Me: ${msg.text}`;
+                msgElem.innerText = `${msg.text}`;
             } else {
                 msgElem.classList.add("received");
-                msgElem.innerText = `${selectedUser.name}: ${msg.text}`;
+                msgElem.innerText = `${msg.text}`;
             }
 
             chatWindow.appendChild(msgElem);
