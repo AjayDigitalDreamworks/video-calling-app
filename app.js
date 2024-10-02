@@ -1,7 +1,7 @@
-// Import Firebase modules
+// Import Firebase libraries
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -17,7 +17,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
-const db = getFirestore(app); // Correct Firestore initialization
+const db = getFirestore(app);
 
 // DOM Elements
 const loginOverlay = document.getElementById("login-overlay");
@@ -33,8 +33,14 @@ const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-btn");
 const audioCallButton = document.getElementById("audio-call-btn");
 const videoCallButton = document.getElementById("video-call-btn");
+const localVideo = document.getElementById("local-video");
+const remoteVideo = document.getElementById("remote-video");
 
 let selectedUser = null;
+let localStream;
+let peerConnection;
+let unreadMessages = {}; // To track unread messages for each user
+let lastMessageTimestamp = null; // To track the last message timestamp
 
 // Google Login
 loginButton.onclick = function () {
@@ -102,9 +108,22 @@ function fetchUserList(loggedInUser) {
                 const user = doc.data();
                 if (user.uid !== loggedInUser.uid) {
                     const li = document.createElement("li");
+                    li.id = "userListAJ";
                     li.innerText = user.name;
                     li.setAttribute("data-user-id", user.uid);
-                    li.onclick = () => selectUser(user);
+
+                    // Unread messages indicator
+                    const unreadIndicator = document.createElement("span");
+                    unreadIndicator.classList.add("unread-indicator");
+                    unreadIndicator.id = `unread-${user.uid}`;
+                    li.appendChild(unreadIndicator);
+
+                    li.onclick = () => {
+                        selectUser(user);
+                        // Clear unread messages count when the user is selected
+                        unreadMessages[user.uid] = 0;
+                        updateUnreadIndicator(user.uid);
+                    };
                     contactList.appendChild(li);
                 }
             });
@@ -112,6 +131,13 @@ function fetchUserList(loggedInUser) {
         .catch((error) => {
             console.error("Error fetching user list: ", error);
         });
+}
+
+// Update unread messages indicator
+function updateUnreadIndicator(userId) {
+    const unreadIndicator = document.getElementById(`unread-${userId}`);
+    const count = unreadMessages[userId] || 0;
+    unreadIndicator.innerText = count > 0 ? ` (${count})` : '';
 }
 
 // Select a user to chat
@@ -149,120 +175,220 @@ function createChatId(userId1, userId2) {
     return userId1 < userId2 ? userId1 + "_" + userId2 : userId2 + "_" + userId1;
 }
 
-// Listen for incoming messages
+// // Listen for incoming messages and track unread messages
+// function listenForMessages(selectedUser) {
+//     const chatId = createChatId(auth.currentUser.uid, selectedUser.uid);
+//     const messagesRef = collection(db, "chats", chatId, "messages");
+
+//     onSnapshot(query(messagesRef, orderBy("timestamp")), (snapshot) => {
+//         chatWindow.innerHTML = ''; // Clear chat window
+//         let hasNewMessage = false;
+
+//         snapshot.forEach((doc) => {
+//             const msg = doc.data();
+//             const msgElem = document.createElement("p");
+//             msgElem.innerText = `${msg.senderId === auth.currentUser.uid ? 'Me' : selectedUser.name}: ${msg.text}`;
+//             chatWindow.appendChild(msgElem);
+
+//             // Check if the message is new and update unread messages
+//             if (msg.timestamp && (lastMessageTimestamp === null || msg.timestamp.toMillis() > lastMessageTimestamp)) {
+//                 if (msg.senderId !== auth.currentUser.uid && selectedUser.uid !== msg.senderId) {
+//                     unreadMessages[msg.senderId] = (unreadMessages[msg.senderId] || 0) + 1;
+//                     updateUnreadIndicator(msg.senderId);
+//                 }
+//                 lastMessageTimestamp = msg.timestamp.toMillis(); // Update last message timestamp
+//                 hasNewMessage = true;
+//             }
+//         });
+
+//         chatWindow.scrollTop = chatWindow.scrollHeight; // Scroll to the bottom
+        
+//         // Play notification sound when a new message arrives
+//         if (hasNewMessage) {
+//             const notificationSound = document.getElementById("notification-sound");
+//             notificationSound.play();
+//         }
+//     });
+// }
+
+
+
+// Listen for incoming messages and track unread messages
 function listenForMessages(selectedUser) {
     const chatId = createChatId(auth.currentUser.uid, selectedUser.uid);
     const messagesRef = collection(db, "chats", chatId, "messages");
-    const q = query(messagesRef, orderBy("timestamp"));
 
-    onSnapshot(q, (snapshot) => {
-        chatWindow.innerHTML = ""; // Clear the chat window
+    onSnapshot(query(messagesRef, orderBy("timestamp")), (snapshot) => {
+        chatWindow.innerHTML = ''; // Clear chat window
+        let hasNewMessage = false;
+
         snapshot.forEach((doc) => {
-            const message = doc.data();
-            const messageElement = document.createElement("p");
-            messageElement.innerText = `${message.senderId === auth.currentUser.uid ? "You" : selectedUser.name}: ${message.text}`;
-            chatWindow.appendChild(messageElement);
+            const msg = doc.data();
+            const msgElem = document.createElement("p");
+            msgElem.className = "chat-message"; // Common class for styling
+            
+            // Set class based on whether the message was sent or received
+            if (msg.senderId === auth.currentUser.uid) {
+                msgElem.classList.add("sent");
+                msgElem.innerText = `Me: ${msg.text}`;
+            } else {
+                msgElem.classList.add("received");
+                msgElem.innerText = `${selectedUser.name}: ${msg.text}`;
+            }
+
+            chatWindow.appendChild(msgElem);
+
+            // Check if the message is new and update unread messages
+            if (msg.timestamp && (lastMessageTimestamp === null || msg.timestamp.toMillis() > lastMessageTimestamp)) {
+                if (msg.senderId !== auth.currentUser.uid && selectedUser.uid !== msg.senderId) {
+                    unreadMessages[msg.senderId] = (unreadMessages[msg.senderId] || 0) + 1;
+                    updateUnreadIndicator(msg.senderId);
+                }
+                lastMessageTimestamp = msg.timestamp.toMillis(); // Update last message timestamp
+                hasNewMessage = true;
+            }
+        });
+
+        chatWindow.scrollTop = chatWindow.scrollHeight; // Scroll to the bottom
+        
+        // Play notification sound when a new message arrives
+        if (hasNewMessage) {
+            const notificationSound = document.getElementById("notification-sound");
+            notificationSound.play();
+        }
+    });
+}
+
+
+// Event listeners for call buttons
+audioCallButton.onclick = () => initiateAudioCall(selectedUser.uid);
+videoCallButton.onclick = () => initiateVideoCall(selectedUser.uid);
+
+// WebRTC - Audio Call Functionality
+function initiateAudioCall(recipientId) {
+    startCall(recipientId, false); // Pass `false` for an audio-only call
+}
+
+// WebRTC - Video Call Functionality
+function initiateVideoCall(recipientId) {
+    startCall(recipientId, true); // Pass `true` for video call
+}
+
+// WebRTC - Start Call (both audio and video)
+async function startCall(recipientId, isVideo) {
+    const configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    peerConnection = new RTCPeerConnection(configuration);
+
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
+        localVideo.srcObject = localStream; // Display local video (if applicable)
+
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendSignal({
+                    type: 'candidate',
+                    candidate: event.candidate,
+                    recipientId: recipientId
+                });
+            }
+        };
+
+        peerConnection.ontrack = (event) => {
+            remoteVideo.srcObject = event.streams[0]; // Display remote video
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sendSignal({
+            type: 'offer',
+            offer: offer,
+            recipientId: recipientId
+        });
+    } catch (error) {
+        console.error("Error accessing media devices: ", error);
+    }
+}
+
+// Send signaling messages via Firestore
+function sendSignal(signal) {
+    const signalRef = doc(db, "signals", signal.recipientId);
+    setDoc(signalRef, {
+        type: signal.type,
+        candidate: signal.candidate || null,
+        offer: signal.offer || null,
+        timestamp: serverTimestamp()
+    }).catch((error) => {
+        console.error("Error sending signal: ", error);
+    });
+}
+
+// Listen for incoming signaling messages
+function listenForSignals() {
+    const signalsRef = collection(db, "signals");
+    onSnapshot(signalsRef, (snapshot) => {
+        snapshot.forEach((doc) => {
+            const signal = doc.data();
+            if (signal.type === "offer") {
+                handleIncomingOffer(signal.offer, doc.id); // Pass the sender's ID to the handler
+            } else if (signal.type === "candidate") {
+                handleIncomingCandidate(signal.candidate);
+            }
         });
     });
 }
 
-// Handle user authentication state
+// Handle incoming offer
+async function handleIncomingOffer(offer, senderId) {
+    peerConnection = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    sendSignal({
+        type: 'answer',
+        answer: answer,
+        recipientId: senderId
+    });
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendSignal({
+                type: 'candidate',
+                candidate: event.candidate,
+                recipientId: senderId
+            });
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0]; // Display remote video
+    };
+}
+
+// Handle incoming ICE candidate
+function handleIncomingCandidate(candidate) {
+    peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch((error) => {
+        console.error("Error adding received ICE candidate: ", error);
+    });
+}
+
+// Start listening for signals when the application loads
+listenForSignals();
+
+// Firebase Auth State Change Listener
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        storeUserData(user); // Update UI or store data if user is logged in
+        // User is signed in
+        storeUserData(user);
     } else {
+        // User is signed out
         loginOverlay.style.display = "flex";
         appContainer.style.display = "none";
     }
 });
-
-// Function to send signaling data
-function sendSignalingData(data) {
-    // Replace with your implementation to send signaling data (e.g., using Firestore or WebSocket)
-}
-
-// Initialize the Media Stream (audio/video)
-async function getMediaStream() {
-    return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-}
-
-// Create Peer Connection
-let peerConnection;
-
-function createPeerConnection() {
-    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-    peerConnection = new RTCPeerConnection(config);
-    
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            sendSignalingData({ candidate: event.candidate });
-        }
-    };
-    
-    peerConnection.ontrack = event => {
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (!remoteVideo.srcObject) {
-            remoteVideo.srcObject = event.streams[0];
-        }
-    };
-}
-
-// Add Media Stream to Peer Connection
-function addMediaStreamToPeerConnection(localStream) {
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-}
-
-// Make a Call
-async function initiateCall(receiverId) {
-    createPeerConnection();
-    const localStream = await getMediaStream();
-    document.getElementById('localVideo').srcObject = localStream;
-    addMediaStreamToPeerConnection(localStream);
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // Send offer to Firestore
-    await setDoc(doc(db, 'calls', receiverId), {
-        offer: peerConnection.localDescription,
-        caller: auth.currentUser.uid,
-        receiver: receiverId
-    });
-}
-
-// Answer a Call
-async function answerCall(offer) {
-    createPeerConnection();
-    const localStream = await getMediaStream();
-    document.getElementById('localVideo').srcObject = localStream;
-    addMediaStreamToPeerConnection(localStream);
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    // Send answer to the caller via Firestore
-    await setDoc(doc(db, 'calls', auth.currentUser.uid), {
-        answer: peerConnection.localDescription
-    });
-}
-
-// Handle incoming call or answer
-function handleSignalingData(data) {
-    if (data.offer) {
-        answerCall(data.offer);
-    } else if (data.answer) {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    } else if (data.candidate) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-    }
-}
-
-// Call buttons
-audioCallButton.onclick = () => {
-    if (selectedUser) initiateCall(selectedUser.uid); // Initiate audio call
-};
-
-videoCallButton.onclick = () => {
-    if (selectedUser) initiateCall(selectedUser.uid); // Initiate video call
-};

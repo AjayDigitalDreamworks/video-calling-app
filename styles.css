@@ -41,7 +41,7 @@ body {
 }
 
 .contact-list header, .user-details header {
-    background-color: #0084ff;
+    background-color: #ffb300;
     color: white;
     padding: 10px;
 }
@@ -61,6 +61,36 @@ body {
     background-color: #f0f0f0;
 }
 
+.unread-indicator {
+    background-color: red;
+    color: white;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 50%;
+    margin-left: 10px;
+    display: none;
+}
+
+/* Add this CSS to your existing stylesheet */
+.chat-message {
+    clear: both;
+    margin: 5px;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 60%;
+}
+
+.sent {
+    background-color: #dcf8c6; /* Light green for sent messages */
+    float: right; /* Align to the right */
+}
+
+.received {
+    background-color: #ffffff; /* White for received messages */
+    float: left; /* Align to the left */
+}
+
+
 .chat-box {
     flex: 1;
     display: flex;
@@ -69,7 +99,7 @@ body {
 }
 
 .chat-box header {
-    background-color: #0084ff;
+    background-color: #00ff3c;
     color: white;
     padding: 10px;
     display: flex;

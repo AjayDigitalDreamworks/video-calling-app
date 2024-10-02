@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyName Make By AJAY Yadav</title>
+    <title>AjApp Messenger</title>
     <link rel="stylesheet" href="styles.css">
     <script src="webrtc.js" defer type="module"></script>
     <script src="app.js" defer type="module"></script>
 </head>
 <body>
     <div id="login-overlay">
-        <h2>Login to WhatsApp Clone</h2>
+        <h2>Login to AjApp Messenger</h2>
         <button id="login-btn">Login with Google</button>
     </div>
 
     <div class="container" id="app-container" style="display: none;">
-        <!-- User Details (logged-in user profile) -->
-        <aside class="user-details">
+        <aside hidden class="user-details">
             <header>
-                <h2>Logged In User</h2>
+                <h2>Looged as</h2>
             </header>
             <p id="logged-user">User: John Doe</p>
             <img id="profile-pic" src="" alt="Profile Picture" style="width: 50px; height: 50px; border-radius: 50%;">
@@ -36,7 +35,7 @@
         <!-- Chat Box -->
         <main class="chat-box">
             <header id="chat-header">
-                <h2>Select a contact</h2>
+                <h2></h2>
                 <button id="audio-call-btn" style="display: none;">Audio Call</button>
                 <button id="video-call-btn" style="display: none;">Video Call</button>
             </header>
@@ -70,6 +69,8 @@
     <!-- ring -->
      <audio src="ringtone.mp3" autoplay id="incoming"></audio>
      <audio src="classic-5916.mp3" autoplay id="outgoing"></audio>
+     <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>
+
 
      
     
