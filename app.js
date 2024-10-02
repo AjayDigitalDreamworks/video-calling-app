@@ -35,6 +35,7 @@ const audioCallButton = document.getElementById("audio-call-btn");
 const videoCallButton = document.getElementById("video-call-btn");
 const localVideo = document.getElementById("local-video");
 const remoteVideo = document.getElementById("remote-video");
+const profileContainer = document.getElementById("profile-container");
 
 let selectedUser = null;
 let localStream;
@@ -142,8 +143,23 @@ function updateUnreadIndicator(userId) {
 
 // Select a user to chat
 function selectUser(user) {
-    selectedUser = user;
-    chatHeader.querySelector("h2").innerText = `Chat with ${user.name}`;
+    selectedUser = user;   
+    const profileContainer = document.createElement("div");
+    profileContainer.style.display = "flex"; 
+    profileContainer.style.alignItems = "center"; 
+    profileContainer.style.gap = "10px"; 
+    const imgShowPro = document.createElement("img");
+    imgShowPro.src = user.photoURL;
+    imgShowPro.width = 40;
+    imgShowPro.height = 40;
+    imgShowPro.style.borderRadius = "100%"; 
+    profileContainer.appendChild(imgShowPro);
+    const userNameElement = document.createElement("h2");
+    userNameElement.innerText = user.name; 
+    userNameElement.style.margin = "0"; 
+    profileContainer.appendChild(userNameElement);
+    chatHeader.innerHTML = ''; 
+    chatHeader.appendChild(profileContainer); 
     messageInput.disabled = false;
     sendButton.disabled = false;
     audioCallButton.style.display = 'inline-block';
